@@ -32,34 +32,10 @@ jobs:
       - id: resolve
         shell: bash
         run: |
-          # Hardcoded ios_versions mapping (version -> build)
-          IOS_VERSIONS='{
-            "13.4":"17E255",
-            "14.0":"18A373",
-            "15.0":"19A346",
-            "16.0":"20A362",
-            "16.1":"20B82",
-            "16.2":"20C65",
-            "16.4":"20E247",
-            "17.0":"21A329",
-            "17.1":"21B74",
-            "17.2":"21C62",
-            "17.3":"21D50",
-            "17.4":"21E219",
-            "17.5":"21F79",
-            "17.6":"21G80",
-            "18.0":"22A3354",
-            "18.1":"22B83",
-            "18.3":"22D63",
-            "18.4":"22E240",
-            "18.5":"22F76",
-            "18.6":"22G86",
-            "18.7":"22H100",
-            "26.1":"23B74",
-            "26.2":"23C75",
-            "26.3":"23D127",
-            "26.4":"23E238"
-          }'
+          # Only these four builds will be used
+          ALLOWED_BUILDS="22H20 22E240 22C152 22B83"
+          # Optional mapping from build to version (for artifact naming)
+          BUILD_TO_VERSION='{"22H20":"18.7","22E240":"18.4","22C152":"18.2","22B83":"18.1"}'
 
           TARGETS_JSON='{"include": []}'
           if [ -f "ci/targets.tsv" ]; then
@@ -69,13 +45,8 @@ jobs:
           tsv_path = 'ci/targets.tsv'
           target_slug = os.environ.get('INPUT_TARGET_SLUG', '').strip()
           major_filter = os.environ.get('INPUT_MAJOR', '').strip()
-
-          # Parse ios_versions from environment
-          ios_versions_str = os.environ.get('IOS_VERSIONS', '{}')
-          try:
-              ios_versions = json.loads(ios_versions_str)
-          except:
-              ios_versions = {}
+          allowed_builds = os.environ.get('ALLOWED_BUILDS', '').split()
+          build_to_version = json.loads(os.environ.get('BUILD_TO_VERSION', '{}'))
 
           # Read devices from TSV
           devices = []
@@ -85,7 +56,6 @@ jobs:
                   for row in reader:
                       if not any(row.values()):
                           continue
-                      # Apply slug filter if given
                       if target_slug and row.get('slug') != target_slug:
                           continue
                       devices.append(row)
@@ -93,18 +63,19 @@ jobs:
               print(json.dumps({"include": []}))
               sys.exit(0)
 
-          # Cross-join devices with ios_versions
+          # Cross-join devices with allowed builds
           rows = []
           for dev in devices:
-              for version, build in ios_versions.items():
-                  # Apply major filter if given (e.g., "18" -> only versions starting with "18.")
+              for build in allowed_builds:
+                  # Apply major filter if given – check if build's version matches major
                   if major_filter:
+                      version = build_to_version.get(build, '')
                       if not version.startswith(major_filter + '.'):
                           continue
-                  # Create a combined row with device fields + version + build
+                  # Create a combined row
                   new_row = {k: str(v) for k, v in dev.items()}
-                  new_row['version'] = version
                   new_row['build'] = build
+                  new_row['version'] = build_to_version.get(build, '')
                   rows.append(new_row)
 
           print(json.dumps({"include": rows}))
@@ -117,7 +88,8 @@ jobs:
         env:
           INPUT_TARGET_SLUG: ${{ inputs.target_slug }}
           INPUT_MAJOR: ${{ inputs.major }}
-          IOS_VERSIONS: '{"13.4":"17E255","14.0":"18A373","15.0":"19A346","16.0":"20A362","16.1":"20B82","16.2":"20C65","16.4":"20E247","17.0":"21A329","17.1":"21B74","17.2":"21C62","17.3":"21D50","17.4":"21E219","17.5":"21F79","17.6":"21G80","18.0":"22A3354","18.1":"22B83","18.3":"22D63","18.4":"22E240","18.5":"22F76","18.6":"22G86","18.7":"22H100","26.1":"23B74","26.2":"23C75","26.3":"23D127","26.4":"23E238"}'
+          ALLOWED_BUILDS: "22H20 22E240 22C152 22B83"
+          BUILD_TO_VERSION: '{"22H20":"18.7","22E240":"18.4","22C152":"18.2","22B83":"18.1"}'
 
   build:
     needs: matrix
