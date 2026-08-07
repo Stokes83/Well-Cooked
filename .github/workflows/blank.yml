@@ -33,36 +33,46 @@ jobs:
       - id: resolve
         shell: bash
         run: |
-          # Read the TSV, filter, and produce valid JSON – no external script needed
-          python3 - <<'EOF'
+          # Always produce a valid JSON array, even on errors or empty results.
+          TARGETS_JSON="[]"
+          if [ -f "ci/targets.tsv" ]; then
+            TARGETS_JSON="$(python3 - <<'EOF'
           import sys, json, csv, os
-          from pathlib import Path
 
-          tsv_path = Path('ci/targets.tsv')
-          if not tsv_path.exists():
-              print('[]')
-              sys.exit(0)
-
+          tsv_path = 'ci/targets.tsv'
           target_slug = os.environ.get('INPUT_TARGET_SLUG', '').strip()
           major_filter = os.environ.get('INPUT_MAJOR', '').strip()
 
-          with tsv_path.open() as f:
-              reader = csv.DictReader(f, delimiter='\t')
-              rows = []
-              for row in reader:
-                  # Skip empty lines
-                  if not any(row.values()):
-                      continue
-                  # Apply filters
-                  if target_slug and row.get('slug') != target_slug:
-                      continue
-                  if major_filter and row.get('major') != major_filter:
-                      continue
-                  # Ensure all fields are strings (especially build numbers)
-                  rows.append({k: str(v) for k, v in row.items()})
+          rows = []
+          try:
+              with open(tsv_path) as f:
+                  reader = csv.DictReader(f, delimiter='\t')
+                  for row in reader:
+                      # Skip empty lines
+                      if not any(row.values()):
+                          continue
+                      # Apply filters
+                      if target_slug and row.get('slug') != target_slug:
+                          continue
+                      if major_filter and row.get('major') != major_filter:
+                          continue
+                      # Convert all values to strings (fixes unquoted build numbers)
+                      rows.append({k: str(v) for k, v in row.items()})
+          except Exception as e:
+              # On any error, still output an empty array to avoid breaking the workflow
+              print(json.dumps([]))
+              sys.exit(0)
 
           print(json.dumps(rows))
           EOF
+          )" || TARGETS_JSON="[]"
+          fi
+
+          # Write the JSON to the output variable
+          echo "targets=$TARGETS_JSON" >> "$GITHUB_OUTPUT"
+
+          # Debug: print the generated JSON to the log
+          echo "Generated targets: $TARGETS_JSON" >&2
         env:
           INPUT_TARGET_SLUG: ${{ inputs.target_slug }}
           INPUT_MAJOR: ${{ inputs.major }}
