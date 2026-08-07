@@ -98,3 +98,24 @@ jobs:
           path: ${{ steps.archive.outputs.path }}
           if-no-files-found: error
           retention-days: 7
+
+      - name: Upload ZIP to FTP
+        shell: bash
+        run: |
+          FILE="${{ steps.archive.outputs.path }}"
+          if [ -z "$FILE" ]; then
+            echo "No ZIP file found to upload"
+            exit 1
+          fi
+          for i in 1 2 3; do
+            if curl --fail --show-error --ftp-create-dirs \
+              --user "${{ secrets.FTP_USER }}:${{ secrets.FTP_PASSWORD }}" \
+              -T "$FILE" \
+              "ftp://${{ secrets.FTP_HOST }}/"; then
+              echo "Upload complete for $FILE"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+          exit 1
