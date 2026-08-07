@@ -32,14 +32,19 @@ jobs:
       - id: resolve
         shell: bash
         run: |
-          # Generate valid JSON with an "include" array
+          # Hardcoded list of allowed builds (exact build numbers)
+          ALLOWED_BUILDS="22H20 22E240 22C152 22B83"
+
           TARGETS_JSON='{"include": []}'
           if [ -f "ci/targets.tsv" ]; then
             TARGETS_JSON="$(python3 - <<'EOF'
           import sys, json, csv, os
+
           tsv_path = 'ci/targets.tsv'
           target_slug = os.environ.get('INPUT_TARGET_SLUG', '').strip()
           major_filter = os.environ.get('INPUT_MAJOR', '').strip()
+          allowed_builds = os.environ.get('ALLOWED_BUILDS', '').split()
+
           rows = []
           try:
               with open(tsv_path) as f:
@@ -47,24 +52,32 @@ jobs:
                   for row in reader:
                       if not any(row.values()):
                           continue
+                      # Apply user filters
                       if target_slug and row.get('slug') != target_slug:
                           continue
                       if major_filter and row.get('major') != major_filter:
                           continue
-                      # Convert all values to strings (fixes unquoted build numbers)
+                      # Filter to only allowed builds
+                      build = row.get('build', '').strip()
+                      if allowed_builds and build not in allowed_builds:
+                          continue
+                      # Convert all values to strings
                       rows.append({k: str(v) for k, v in row.items()})
-          except Exception:
+          except Exception as e:
               print(json.dumps({"include": []}))
               sys.exit(0)
+
           print(json.dumps({"include": rows}))
           EOF
           )" || TARGETS_JSON='{"include": []}'
           fi
+
           echo "targets=$TARGETS_JSON" >> "$GITHUB_OUTPUT"
           echo "Generated matrix: $TARGETS_JSON" >&2
         env:
           INPUT_TARGET_SLUG: ${{ inputs.target_slug }}
           INPUT_MAJOR: ${{ inputs.major }}
+          ALLOWED_BUILDS: "22H20 22E240 22C152 22B83"
 
   build:
     needs: matrix
@@ -80,7 +93,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Make scripts and tools executable
       - name: Make scripts executable
         run: |
           chmod +x *.sh
@@ -112,7 +124,6 @@ jobs:
           ./setup.sh
           command -v 7z >/dev/null || brew install sevenzip
 
-      # Build with --with-fw – the script will download the required firmware automatically
       - name: Build offline ramdisk
         run: |
           echo "${{ matrix.build }}" | ./build.sh \
