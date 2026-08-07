@@ -32,9 +32,7 @@ jobs:
       - id: resolve
         shell: bash
         run: |
-          # Only these four builds will be used
           ALLOWED_BUILDS="22H20 22E240 22C152 22B83"
-          # Optional mapping from build to version (for artifact naming)
           BUILD_TO_VERSION='{"22H20":"18.7","22E240":"18.4","22C152":"18.2","22B83":"18.1"}'
 
           TARGETS_JSON='{"include": []}'
@@ -48,7 +46,6 @@ jobs:
           allowed_builds = os.environ.get('ALLOWED_BUILDS', '').split()
           build_to_version = json.loads(os.environ.get('BUILD_TO_VERSION', '{}'))
 
-          # Read devices from TSV
           devices = []
           try:
               with open(tsv_path) as f:
@@ -63,16 +60,13 @@ jobs:
               print(json.dumps({"include": []}))
               sys.exit(0)
 
-          # Cross-join devices with allowed builds
           rows = []
           for dev in devices:
               for build in allowed_builds:
-                  # Apply major filter if given – check if build's version matches major
                   if major_filter:
                       version = build_to_version.get(build, '')
                       if not version.startswith(major_filter + '.'):
                           continue
-                  # Create a combined row
                   new_row = {k: str(v) for k, v in dev.items()}
                   new_row['build'] = build
                   new_row['version'] = build_to_version.get(build, '')
@@ -135,25 +129,43 @@ jobs:
           fi
           ./setup.sh
           command -v 7z >/dev/null || brew install sevenzip
+          # Install common tools that might be needed
+          brew install xz ldid libusb hfsprogs || true
 
-      - name: Build offline ramdisk
+      - name: Build offline ramdisk (with verbose logging)
+        id: build
         run: |
-          echo "${{ matrix.build }}" | ./build.sh \
+          set -e
+          # Run build with verbose output, capture both stdout and stderr
+          echo "${{ matrix.build }}" | bash -x ./build.sh \
             --product '${{ matrix.product }}' \
             --model '${{ matrix.board }}' \
             --cpid '${{ matrix.cpid }}' \
             --name '${{ matrix.name }}' \
-            --with-fw
+            --with-fw 2>&1 | tee build.log
+          # If we reach here, success
+          echo "Build successful"
+        continue-on-error: true
+
+      - name: Show build log if failure
+        if: steps.build.outcome == 'failure'
+        run: |
+          echo "=== Last 100 lines of build.log ==="
+          tail -n 100 build.log
+          echo "=== End of log ==="
+          exit 1
 
       - name: Create password-protected ZIP
+        if: steps.build.outcome == 'success'
         run: ./protect_bootchain.sh --password-env RAMDISK_ZIP_PASSWORD
 
       - name: Select archive
         id: archive
+        if: steps.build.outcome == 'success'
         run: echo "path=$(find protected -maxdepth 1 -type f -name '*.zip' -print -quit)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
-        if: ${{ inputs.upload_artifacts }}
+        if: ${{ inputs.upload_artifacts && steps.build.outcome == 'success' }}
         with:
           name: ${{ matrix.slug }}-ios-${{ matrix.version }}-${{ matrix.build }}
           path: ${{ steps.archive.outputs.path }}
@@ -161,6 +173,7 @@ jobs:
           retention-days: 7
 
       - name: Upload ZIP to FTP
+        if: steps.build.outcome == 'success'
         run: |
           FILE="${{ steps.archive.outputs.path }}"
           if [ -z "$FILE" ]; then
