@@ -33,8 +33,9 @@ jobs:
       - id: resolve
         shell: bash
         run: |
-          # Always produce a valid JSON array, even on errors or empty results.
-          TARGETS_JSON="[]"
+          # Always produce a valid JSON object with an "include" array.
+          # This matches GitHub's matrix.include syntax.
+          TARGETS_JSON='{"include": []}'
           if [ -f "ci/targets.tsv" ]; then
             TARGETS_JSON="$(python3 - <<'EOF'
           import sys, json, csv, os
@@ -48,31 +49,27 @@ jobs:
               with open(tsv_path) as f:
                   reader = csv.DictReader(f, delimiter='\t')
                   for row in reader:
-                      # Skip empty lines
                       if not any(row.values()):
                           continue
-                      # Apply filters
                       if target_slug and row.get('slug') != target_slug:
                           continue
                       if major_filter and row.get('major') != major_filter:
                           continue
                       # Convert all values to strings (fixes unquoted build numbers)
                       rows.append({k: str(v) for k, v in row.items()})
-          except Exception as e:
-              # On any error, still output an empty array to avoid breaking the workflow
-              print(json.dumps([]))
+          except Exception:
+              # On any error, still output an empty include array
+              print(json.dumps({"include": []}))
               sys.exit(0)
 
-          print(json.dumps(rows))
+          # Wrap the rows in an "include" key
+          print(json.dumps({"include": rows}))
           EOF
-          )" || TARGETS_JSON="[]"
+          )" || TARGETS_JSON='{"include": []}'
           fi
 
-          # Write the JSON to the output variable
           echo "targets=$TARGETS_JSON" >> "$GITHUB_OUTPUT"
-
-          # Debug: print the generated JSON to the log
-          echo "Generated targets: $TARGETS_JSON" >&2
+          echo "Generated matrix: $TARGETS_JSON" >&2
         env:
           INPUT_TARGET_SLUG: ${{ inputs.target_slug }}
           INPUT_MAJOR: ${{ inputs.major }}
