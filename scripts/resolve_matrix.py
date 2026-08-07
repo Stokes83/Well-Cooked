@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve the newest available IPSW in each requested major-version line."""
+"""Generate a mapping from full version to build ID for a given device."""
 
 from __future__ import annotations
 
@@ -24,44 +24,29 @@ def main() -> None:
     slug_filter = sys.argv[2] if len(sys.argv) >= 3 else ""
     major_filter = sys.argv[3] if len(sys.argv) >= 4 else ""
 
-    entries: list[dict[str, str]] = []
+    version_to_build: dict[str, str] = {}
+
     with Path(sys.argv[1]).open(newline="", encoding="utf-8") as handle:
         rows = csv.reader((line for line in handle if not line.startswith("#")), delimiter="\t")
         for slug, name, product, board, cpid, majors in rows:
             if slug_filter and slug != slug_filter:
                 continue
             available = firmwares(product)
-            for major in majors.split(","):
-                if major_filter and major != major_filter:
-                    continue
-                matches = [
-                    fw
-                    for fw in available
-                    if str(fw.get("version", "")).split(".", 1)[0] == major
-                ]
-                if not matches:
-                    print(
-                        f"skip {product} {name}: no iOS/iPadOS {major} IPSW",
-                        file=sys.stderr,
-                    )
-                    continue
-                selected = max(matches, key=lambda fw: str(fw.get("releasedate", "")))
-                entries.append(
-                    {
-                        "slug": slug,
-                        "name": name,
-                        "product": product,
-                        "board": board,
-                        "cpid": cpid,
-                        "major": major,
-                        "version": str(selected["version"]),
-                        "build": str(selected["buildid"]),
-                    }
-                )
 
-    if not entries:
-        raise SystemExit("no firmware targets matched the requested filters")
-    print(json.dumps({"include": entries}, separators=(",", ":")))
+            for fw in available:
+                ver = str(fw.get("version", ""))
+                # Apply major filter if given
+                if major_filter and not ver.startswith(major_filter + "."):
+                    continue
+                build = str(fw.get("buildid", ""))
+                if ver and build:
+                    version_to_build[ver] = build
+
+    if not version_to_build:
+        raise SystemExit("no firmware found for the given filters")
+
+    # Output exactly the desired JSON
+    print(json.dumps(version_to_build, separators=(",", ":")))
 
 
 if __name__ == "__main__":
