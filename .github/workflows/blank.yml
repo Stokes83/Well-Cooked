@@ -29,7 +29,6 @@ jobs:
       targets: ${{ steps.resolve.outputs.targets }}
     steps:
       - uses: actions/checkout@v4
-
       - id: resolve
         shell: bash
         run: |
@@ -37,11 +36,9 @@ jobs:
           if [ -f "ci/targets.tsv" ]; then
             TARGETS_JSON="$(python3 - <<'EOF'
           import sys, json, csv, os
-
           tsv_path = 'ci/targets.tsv'
           target_slug = os.environ.get('INPUT_TARGET_SLUG', '').strip()
           major_filter = os.environ.get('INPUT_MAJOR', '').strip()
-
           rows = []
           try:
               with open(tsv_path) as f:
@@ -57,12 +54,10 @@ jobs:
           except Exception:
               print(json.dumps({"include": []}))
               sys.exit(0)
-
           print(json.dumps({"include": rows}))
           EOF
           )" || TARGETS_JSON='{"include": []}'
           fi
-
           echo "targets=$TARGETS_JSON" >> "$GITHUB_OUTPUT"
           echo "Generated matrix: $TARGETS_JSON" >&2
         env:
@@ -83,18 +78,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 🔑 Make EVERYTHING executable – including all tools
       - name: Make all scripts and tools executable
         run: |
           chmod +x *.sh
           chmod -R +x tools/
 
       - name: Verify archive password secret
-        shell: bash
         run: test -n "$RAMDISK_ZIP_PASSWORD"
 
       - name: Install build dependencies
-        shell: bash
         run: |
           if ! command -v ipsw >/dev/null; then
             release_json="$(curl --fail --silent --show-error \
@@ -117,24 +109,21 @@ jobs:
           ./setup.sh
           command -v 7z >/dev/null || brew install sevenzip
 
+      # 🔑 Pipe the exact build number to the interactive prompt
       - name: Build offline ramdisk
-        shell: bash
         run: |
-          ./build.sh \
+          echo "${{ matrix.build }}" | ./build.sh \
             --product '${{ matrix.product }}' \
             --model '${{ matrix.board }}' \
             --cpid '${{ matrix.cpid }}' \
             --name '${{ matrix.name }}' \
-            --build '${{ matrix.build }}' \
             --with-fw
 
       - name: Create password-protected ZIP
-        shell: bash
         run: ./protect_bootchain.sh --password-env RAMDISK_ZIP_PASSWORD
 
       - name: Select archive
         id: archive
-        shell: bash
         run: echo "path=$(find protected -maxdepth 1 -type f -name '*.zip' -print -quit)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
@@ -146,7 +135,6 @@ jobs:
           retention-days: 7
 
       - name: Upload ZIP to FTP
-        shell: bash
         run: |
           FILE="${{ steps.archive.outputs.path }}"
           if [ -z "$FILE" ]; then
