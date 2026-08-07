@@ -33,8 +33,7 @@ jobs:
       - id: resolve
         shell: bash
         run: |
-          # Always produce a valid JSON object with an "include" array.
-          # This matches GitHub's matrix.include syntax.
+          # Produce valid JSON with an "include" array – even if empty
           TARGETS_JSON='{"include": []}'
           if [ -f "ci/targets.tsv" ]; then
             TARGETS_JSON="$(python3 - <<'EOF'
@@ -55,14 +54,11 @@ jobs:
                           continue
                       if major_filter and row.get('major') != major_filter:
                           continue
-                      # Convert all values to strings (fixes unquoted build numbers)
                       rows.append({k: str(v) for k, v in row.items()})
           except Exception:
-              # On any error, still output an empty include array
               print(json.dumps({"include": []}))
               sys.exit(0)
 
-          # Wrap the rows in an "include" key
           print(json.dumps({"include": rows}))
           EOF
           )" || TARGETS_JSON='{"include": []}'
@@ -87,6 +83,10 @@ jobs:
       GH_API_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
+
+      # 🔑 Fix permission issues for all shell scripts
+      - name: Make scripts executable
+        run: chmod +x build.sh setup.sh protect_bootchain.sh
 
       - name: Verify archive password secret
         shell: bash
