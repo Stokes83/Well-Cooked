@@ -33,7 +33,6 @@ jobs:
       - id: resolve
         shell: bash
         run: |
-          # Produce valid JSON with an "include" array – even if empty
           TARGETS_JSON='{"include": []}'
           if [ -f "ci/targets.tsv" ]; then
             TARGETS_JSON="$(python3 - <<'EOF'
@@ -84,9 +83,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 🔑 Fix permission issues for all shell scripts
-      - name: Make scripts executable
-        run: chmod +x build.sh setup.sh protect_bootchain.sh
+      # 🔑 Make EVERYTHING executable – including all tools
+      - name: Make all scripts and tools executable
+        run: |
+          chmod +x *.sh
+          chmod -R +x tools/
 
       - name: Verify archive password secret
         shell: bash
