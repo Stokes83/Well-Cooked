@@ -109,15 +109,22 @@ jobs:
           ./setup.sh
           command -v 7z >/dev/null || brew install sevenzip
 
-      # 🔑 Pipe the exact build number to the interactive prompt
+      # 🔽 Manually download the IPSW so the script can use it locally
+      - name: Download IPSW for ${{ matrix.product }} (${{ matrix.build }})
+        run: |
+          mkdir -p firmware
+          ipsw download --device "${{ matrix.product }}" --build "${{ matrix.build }}" --output firmware/
+          # The ipsw tool may name the file with the build and product; we also copy it to the root to be safe
+          cp firmware/*.ipsw . || true
+
+      # 🔽 Now build without --with-fw (it will use the local IPSW)
       - name: Build offline ramdisk
         run: |
           echo "${{ matrix.build }}" | ./build.sh \
             --product '${{ matrix.product }}' \
             --model '${{ matrix.board }}' \
             --cpid '${{ matrix.cpid }}' \
-            --name '${{ matrix.name }}' \
-            --with-fw
+            --name '${{ matrix.name }}'
 
       - name: Create password-protected ZIP
         run: ./protect_bootchain.sh --password-env RAMDISK_ZIP_PASSWORD
