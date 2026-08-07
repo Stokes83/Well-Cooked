@@ -14,10 +14,10 @@ on:
         type: string
         default: ''
       major:
-        description: Optional OS major filter (13,14,15,16,17,18,26); blank builds all
+        description: OS major filter (e.g., 13,14,15,16,17,18,26) – blank builds all (may exceed 256 limit)
         required: false
         type: string
-        default: ''
+        default: '18'
 
 permissions:
   contents: read
@@ -45,7 +45,6 @@ jobs:
           major_filter = os.environ.get('INPUT_MAJOR', '').strip()
           build_to_version = json.loads(os.environ.get('BUILD_TO_VERSION', '{}'))
 
-          # Read devices from TSV
           devices = []
           try:
               with open(tsv_path) as f:
@@ -63,10 +62,8 @@ jobs:
           rows = []
           for dev in devices:
               for version, build in build_to_version.items():
-                  # Apply major filter if given
-                  if major_filter:
-                      if not version.startswith(major_filter + '.'):
-                          continue
+                  if major_filter and not version.startswith(major_filter + '.'):
+                      continue
                   new_row = {k: str(v) for k, v in dev.items()}
                   new_row['build'] = build
                   new_row['version'] = version
