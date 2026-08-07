@@ -1,17 +1,17 @@
 # slug	name	product	board	cpid	majors
-iphone-xr	iPhone XR	iPhone11,8	n841ap	0x8020	18
-iphone-xs	iPhone XS	iPhone11,2	d321ap	0x8020	18
-iphone-xs-max	iPhone XS Max	iPhone11,6	d331pap	0x8020	18
-iphone-xs-max-china	iPhone XS Max China	iPhone11,4	d331ap	0x8020	18
-iphone-11	iPhone 11	iPhone12,1	n104ap	0x8030	18,26
-iphone-11-pro	iPhone 11 Pro	iPhone12,3	d421ap	0x8030	18,26
-iphone-11-pro-max	iPhone 11 Pro Max	iPhone12,5	d431ap	0x8030	18,26
-iphone-se-2	iPhone SE 2	iPhone12,8	d79ap	0x8030	18,26
-ipad-mini-5-wifi	iPad mini 5 WiFi	iPad11,1	j210ap	0x8020	18,26
-ipad-mini-5-cellular	iPad mini 5 Cellular	iPad11,2	j211ap	0x8020	18,26
-ipad-air-3-wifi	iPad Air 3 WiFi	iPad11,3	j217ap	0x8020	18,26
-ipad-air-3-cellular	iPad Air 3 Cellular	iPad11,4	j218ap	0x8020	18,26
-ipad-8-wifi	iPad 8 WiFi	iPad11,6	j171aap	0x8020	18,26
-ipad-8-cellular	iPad 8 Cellular	iPad11,7	j172aap	0x8020	18,26
-ipad-9-wifi	iPad 9 WiFi	iPad12,1	j181ap	0x8030	18,26
-ipad-9-cellular	iPad 9 Cellular	iPad12,2	j182ap	0x8030	18,26
+iphone-xr	iPhone XR	iPhone11,8	n841ap	0x8020	13,14,15,16,17,18
+iphone-xs	iPhone XS	iPhone11,2	d321ap	0x8020	13,14,15,16,17,18
+iphone-xs-max	iPhone XS Max	iPhone11,6	d331pap	0x8020	13,14,15,16,17,18
+iphone-xs-max-china	iPhone XS Max China	iPhone11,4	d331ap	0x8020	13,14,15,16,17,18
+iphone-11	iPhone 11	iPhone12,1	n104ap	0x8030	13,14,15,16,17,18,26
+iphone-11-pro	iPhone 11 Pro	iPhone12,3	d421ap	0x8030	13,14,15,16,17,18,26
+iphone-11-pro-max	iPhone 11 Pro Max	iPhone12,5	d431ap	0x8030	13,14,15,16,17,18,26
+iphone-se-2	iPhone SE 2	iPhone12,8	d79ap	0x8030	13,14,15,16,17,18,26
+ipad-mini-5-wifi	iPad mini 5 WiFi	iPad11,1	j210ap	0x8020	13,14,15,16,17,18,26
+ipad-mini-5-cellular	iPad mini 5 Cellular	iPad11,2	j211ap	0x8020	13,14,15,16,17,18,26
+ipad-air-3-wifi	iPad Air 3 WiFi	iPad11,3	j217ap	0x8020	13,14,15,16,17,18,26
+ipad-air-3-cellular	iPad Air 3 Cellular	iPad11,4	j218ap	0x8020	13,14,15,16,17,18,26
+ipad-8-wifi	iPad 8 WiFi	iPad11,6	j171ap	0x8020	13,14,15,16,17,18,26
+ipad-8-cellular	iPad 8 Cellular	iPad11,7	j172ap	0x8020	13,14,15,16,17,18,26
+ipad-9-wifi	iPad 9 WiFi	iPad12,1	j181ap	0x8030	13,14,15,16,17,18,26
+ipad-9-cellular	iPad 9 Cellular	iPad12,2	j182ap	0x8030	13,14,15,16,17,18,26
