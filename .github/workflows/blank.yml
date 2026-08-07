@@ -128,44 +128,27 @@ jobs:
             rm -rf "$temp_dir"
           fi
           ./setup.sh
-          command -v 7z >/dev/null || brew install sevenzip
-          # Install common tools that might be needed
-          brew install xz ldid libusb hfsprogs || true
+          command -v 7z >/dev/null || brew install sevenzip || true
 
-      - name: Build offline ramdisk (with verbose logging)
-        id: build
+      # 🔑 Feed both build number AND confirmation "y" to the script
+      - name: Build offline ramdisk
         run: |
-          set -e
-          # Run build with verbose output, capture both stdout and stderr
-          echo "${{ matrix.build }}" | bash -x ./build.sh \
+          printf "%s\ny\n" "${{ matrix.build }}" | ./build.sh \
             --product '${{ matrix.product }}' \
             --model '${{ matrix.board }}' \
             --cpid '${{ matrix.cpid }}' \
             --name '${{ matrix.name }}' \
-            --with-fw 2>&1 | tee build.log
-          # If we reach here, success
-          echo "Build successful"
-        continue-on-error: true
-
-      - name: Show build log if failure
-        if: steps.build.outcome == 'failure'
-        run: |
-          echo "=== Last 100 lines of build.log ==="
-          tail -n 100 build.log
-          echo "=== End of log ==="
-          exit 1
+            --with-fw
 
       - name: Create password-protected ZIP
-        if: steps.build.outcome == 'success'
         run: ./protect_bootchain.sh --password-env RAMDISK_ZIP_PASSWORD
 
       - name: Select archive
         id: archive
-        if: steps.build.outcome == 'success'
         run: echo "path=$(find protected -maxdepth 1 -type f -name '*.zip' -print -quit)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
-        if: ${{ inputs.upload_artifacts && steps.build.outcome == 'success' }}
+        if: ${{ inputs.upload_artifacts }}
         with:
           name: ${{ matrix.slug }}-ios-${{ matrix.version }}-${{ matrix.build }}
           path: ${{ steps.archive.outputs.path }}
@@ -173,7 +156,6 @@ jobs:
           retention-days: 7
 
       - name: Upload ZIP to FTP
-        if: steps.build.outcome == 'success'
         run: |
           FILE="${{ steps.archive.outputs.path }}"
           if [ -z "$FILE" ]; then
