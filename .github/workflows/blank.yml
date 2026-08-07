@@ -109,14 +109,20 @@ jobs:
           ./setup.sh
           command -v 7z >/dev/null || brew install sevenzip
 
-      # 🔽 Download the IPSW using the correct subcommand
+      # 🔽 Download the IPSW with --confirm to skip interactive prompt
       - name: Download IPSW for ${{ matrix.product }} (${{ matrix.build }})
         run: |
           mkdir -p firmware
-          # ipsw download ipsw --device <device> --build <build> --output <dir>
-          ipsw download ipsw --device "${{ matrix.product }}" --build "${{ matrix.build }}" --output firmware/
-          # Copy the downloaded IPSW to the root directory so build.sh can find it
+          ipsw download ipsw \
+            --device "${{ matrix.product }}" \
+            --build "${{ matrix.build }}" \
+            --output firmware/ \
+            --confirm
+          # Copy the downloaded IPSW to the root directory
           cp firmware/*.ipsw . 2>/dev/null || echo "No IPSW found, check ipsw command"
+          # List downloaded files for debugging
+          ls -la firmware/
+          ls -la *.ipsw 2>/dev/null || echo "No IPSW in root"
 
       # 🔽 Build without --with-fw (uses local IPSW)
       - name: Build offline ramdisk
