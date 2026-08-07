@@ -29,11 +29,43 @@ jobs:
       targets: ${{ steps.resolve.outputs.targets }}
     steps:
       - uses: actions/checkout@v4
+
       - id: resolve
         shell: bash
         run: |
-          targets="$(python3 scripts/resolve_matrix.py ci/targets.tsv '${{ inputs.target_slug }}' '${{ inputs.major }}')"
-          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+          # Read the TSV, filter, and produce valid JSON – no external script needed
+          python3 - <<'EOF'
+          import sys, json, csv, os
+          from pathlib import Path
+
+          tsv_path = Path('ci/targets.tsv')
+          if not tsv_path.exists():
+              print('[]')
+              sys.exit(0)
+
+          target_slug = os.environ.get('INPUT_TARGET_SLUG', '').strip()
+          major_filter = os.environ.get('INPUT_MAJOR', '').strip()
+
+          with tsv_path.open() as f:
+              reader = csv.DictReader(f, delimiter='\t')
+              rows = []
+              for row in reader:
+                  # Skip empty lines
+                  if not any(row.values()):
+                      continue
+                  # Apply filters
+                  if target_slug and row.get('slug') != target_slug:
+                      continue
+                  if major_filter and row.get('major') != major_filter:
+                      continue
+                  # Ensure all fields are strings (especially build numbers)
+                  rows.append({k: str(v) for k, v in row.items()})
+
+          print(json.dumps(rows))
+          EOF
+        env:
+          INPUT_TARGET_SLUG: ${{ inputs.target_slug }}
+          INPUT_MAJOR: ${{ inputs.major }}
 
   build:
     needs: matrix
@@ -48,9 +80,11 @@ jobs:
       GH_API_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Verify archive password secret
         shell: bash
         run: test -n "$RAMDISK_ZIP_PASSWORD"
+
       - name: Install build dependencies
         shell: bash
         run: |
@@ -74,6 +108,7 @@ jobs:
           fi
           ./setup.sh
           command -v 7z >/dev/null || brew install sevenzip
+
       - name: Build offline ramdisk
         shell: bash
         run: |
@@ -84,13 +119,16 @@ jobs:
             --name '${{ matrix.name }}' \
             --build '${{ matrix.build }}' \
             --with-fw
+
       - name: Create password-protected ZIP
         shell: bash
         run: ./protect_bootchain.sh --password-env RAMDISK_ZIP_PASSWORD
+
       - name: Select archive
         id: archive
         shell: bash
         run: echo "path=$(find protected -maxdepth 1 -type f -name '*.zip' -print -quit)" >> "$GITHUB_OUTPUT"
+
       - uses: actions/upload-artifact@v4
         if: ${{ inputs.upload_artifacts }}
         with:
