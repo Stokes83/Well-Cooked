@@ -32,8 +32,8 @@ jobs:
       - id: resolve
         shell: bash
         run: |
-          ALLOWED_BUILDS="22H20 22E240 22C152 22B83"
-          BUILD_TO_VERSION='{"22H20":"18.7","22E240":"18.4","22C152":"18.2","22B83":"18.1"}'
+          # Full mapping from version -> build
+          BUILD_TO_VERSION='{"13.4":"17E255","14.1":"18A8395","15.0":"19A346","16.0":"20A362","16.1":"20B82","16.2":"20C65","16.4":"20E247","17.0":"21A329","17.1":"21B74","17.2":"21C62","17.3":"21D50","17.4":"21E219","17.5":"21F79","17.6":"21G80","18.0":"22A3354","18.1":"22B83","18.2":"22C152","18.3":"22D63","18.4":"22E240","18.5":"22F76","18.6":"22G86","18.7":"22H100","26.1":"23B74","26.2":"23C75","26.3":"23D127","26.4":"23E238"}'
 
           TARGETS_JSON='{"include": []}'
           if [ -f "ci/targets.tsv" ]; then
@@ -43,9 +43,9 @@ jobs:
           tsv_path = 'ci/targets.tsv'
           target_slug = os.environ.get('INPUT_TARGET_SLUG', '').strip()
           major_filter = os.environ.get('INPUT_MAJOR', '').strip()
-          allowed_builds = os.environ.get('ALLOWED_BUILDS', '').split()
           build_to_version = json.loads(os.environ.get('BUILD_TO_VERSION', '{}'))
 
+          # Read devices from TSV
           devices = []
           try:
               with open(tsv_path) as f:
@@ -62,14 +62,14 @@ jobs:
 
           rows = []
           for dev in devices:
-              for build in allowed_builds:
+              for version, build in build_to_version.items():
+                  # Apply major filter if given
                   if major_filter:
-                      version = build_to_version.get(build, '')
                       if not version.startswith(major_filter + '.'):
                           continue
                   new_row = {k: str(v) for k, v in dev.items()}
                   new_row['build'] = build
-                  new_row['version'] = build_to_version.get(build, '')
+                  new_row['version'] = version
                   rows.append(new_row)
 
           print(json.dumps({"include": rows}))
@@ -82,8 +82,7 @@ jobs:
         env:
           INPUT_TARGET_SLUG: ${{ inputs.target_slug }}
           INPUT_MAJOR: ${{ inputs.major }}
-          ALLOWED_BUILDS: "22H20 22E240 22C152 22B83"
-          BUILD_TO_VERSION: '{"22H20":"18.7","22E240":"18.4","22C152":"18.2","22B83":"18.1"}'
+          BUILD_TO_VERSION: '{"13.4":"17E255","14.1":"18A8395","15.0":"19A346","16.0":"20A362","16.1":"20B82","16.2":"20C65","16.4":"20E247","17.0":"21A329","17.1":"21B74","17.2":"21C62","17.3":"21D50","17.4":"21E219","17.5":"21F79","17.6":"21G80","18.0":"22A3354","18.1":"22B83","18.2":"22C152","18.3":"22D63","18.4":"22E240","18.5":"22F76","18.6":"22G86","18.7":"22H100","26.1":"23B74","26.2":"23C75","26.3":"23D127","26.4":"23E238"}'
 
   build:
     needs: matrix
@@ -145,17 +144,13 @@ jobs:
       - name: Rename ZIP to product-version format
         id: rename
         run: |
-          # Find the generated ZIP (should be in protected/ folder)
           ORIGINAL_ZIP=$(find protected -maxdepth 1 -type f -name '*.zip' -print -quit)
           if [ -z "$ORIGINAL_ZIP" ]; then
             echo "No ZIP file found in protected/"
             exit 1
           fi
-          # New name: product-version.zip (e.g., iPhone11,8-18.7.zip)
           NEW_NAME="${{ matrix.product }}-${{ matrix.version }}.zip"
-          # Move/rename the file
           mv "$ORIGINAL_ZIP" "protected/$NEW_NAME"
-          # Set output for later steps
           echo "path=protected/$NEW_NAME" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
