@@ -130,7 +130,6 @@ jobs:
           ./setup.sh
           command -v 7z >/dev/null || brew install sevenzip || true
 
-      # 🔑 Feed both build number AND confirmation "y" to the script
       - name: Build offline ramdisk
         run: |
           printf "%s\ny\n" "${{ matrix.build }}" | ./build.sh \
@@ -143,21 +142,33 @@ jobs:
       - name: Create password-protected ZIP
         run: ./protect_bootchain.sh --password-env RAMDISK_ZIP_PASSWORD
 
-      - name: Select archive
-        id: archive
-        run: echo "path=$(find protected -maxdepth 1 -type f -name '*.zip' -print -quit)" >> "$GITHUB_OUTPUT"
+      - name: Rename ZIP to product-version format
+        id: rename
+        run: |
+          # Find the generated ZIP (should be in protected/ folder)
+          ORIGINAL_ZIP=$(find protected -maxdepth 1 -type f -name '*.zip' -print -quit)
+          if [ -z "$ORIGINAL_ZIP" ]; then
+            echo "No ZIP file found in protected/"
+            exit 1
+          fi
+          # New name: product-version.zip (e.g., iPhone11,8-18.7.zip)
+          NEW_NAME="${{ matrix.product }}-${{ matrix.version }}.zip"
+          # Move/rename the file
+          mv "$ORIGINAL_ZIP" "protected/$NEW_NAME"
+          # Set output for later steps
+          echo "path=protected/$NEW_NAME" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
         if: ${{ inputs.upload_artifacts }}
         with:
-          name: ${{ matrix.slug }}-ios-${{ matrix.version }}-${{ matrix.build }}
-          path: ${{ steps.archive.outputs.path }}
+          name: ${{ matrix.product }}-${{ matrix.version }}
+          path: ${{ steps.rename.outputs.path }}
           if-no-files-found: error
           retention-days: 7
 
       - name: Upload ZIP to FTP
         run: |
-          FILE="${{ steps.archive.outputs.path }}"
+          FILE="${{ steps.rename.outputs.path }}"
           if [ -z "$FILE" ]; then
             echo "No ZIP file found to upload"
             exit 1
