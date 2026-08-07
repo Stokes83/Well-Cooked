@@ -32,6 +32,7 @@ jobs:
       - id: resolve
         shell: bash
         run: |
+          # Generate valid JSON with an "include" array
           TARGETS_JSON='{"include": []}'
           if [ -f "ci/targets.tsv" ]; then
             TARGETS_JSON="$(python3 - <<'EOF'
@@ -50,6 +51,7 @@ jobs:
                           continue
                       if major_filter and row.get('major') != major_filter:
                           continue
+                      # Convert all values to strings (fixes unquoted build numbers)
                       rows.append({k: str(v) for k, v in row.items()})
           except Exception:
               print(json.dumps({"include": []}))
@@ -78,7 +80,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Make all scripts and tools executable
+      # Make scripts and tools executable
+      - name: Make scripts executable
         run: |
           chmod +x *.sh
           chmod -R +x tools/
@@ -109,29 +112,15 @@ jobs:
           ./setup.sh
           command -v 7z >/dev/null || brew install sevenzip
 
-      # 🔽 Download the IPSW with --confirm to skip interactive prompt
-      - name: Download IPSW for ${{ matrix.product }} (${{ matrix.build }})
-        run: |
-          mkdir -p firmware
-          ipsw download ipsw \
-            --device "${{ matrix.product }}" \
-            --build "${{ matrix.build }}" \
-            --output firmware/ \
-            --confirm
-          # Copy the downloaded IPSW to the root directory
-          cp firmware/*.ipsw . 2>/dev/null || echo "No IPSW found, check ipsw command"
-          # List downloaded files for debugging
-          ls -la firmware/
-          ls -la *.ipsw 2>/dev/null || echo "No IPSW in root"
-
-      # 🔽 Build without --with-fw (uses local IPSW)
+      # Build with --with-fw – the script will download the required firmware automatically
       - name: Build offline ramdisk
         run: |
           echo "${{ matrix.build }}" | ./build.sh \
             --product '${{ matrix.product }}' \
             --model '${{ matrix.board }}' \
             --cpid '${{ matrix.cpid }}' \
-            --name '${{ matrix.name }}'
+            --name '${{ matrix.name }}' \
+            --with-fw
 
       - name: Create password-protected ZIP
         run: ./protect_bootchain.sh --password-env RAMDISK_ZIP_PASSWORD
