@@ -14,7 +14,7 @@ on:
         type: string
         default: ''
       major:
-        description: Optional OS major filter (18 or 26); blank builds both
+        description: Optional OS major filter (13,14,15,16,17,18,26); blank builds all
         required: false
         type: string
         default: ''
@@ -32,8 +32,34 @@ jobs:
       - id: resolve
         shell: bash
         run: |
-          # Hardcoded list of allowed builds (exact build numbers)
-          ALLOWED_BUILDS="22H20 22E240 22C152 22B83"
+          # Hardcoded ios_versions mapping (version -> build)
+          IOS_VERSIONS='{
+            "13.4":"17E255",
+            "14.0":"18A373",
+            "15.0":"19A346",
+            "16.0":"20A362",
+            "16.1":"20B82",
+            "16.2":"20C65",
+            "16.4":"20E247",
+            "17.0":"21A329",
+            "17.1":"21B74",
+            "17.2":"21C62",
+            "17.3":"21D50",
+            "17.4":"21E219",
+            "17.5":"21F79",
+            "17.6":"21G80",
+            "18.0":"22A3354",
+            "18.1":"22B83",
+            "18.3":"22D63",
+            "18.4":"22E240",
+            "18.5":"22F76",
+            "18.6":"22G86",
+            "18.7":"22H100",
+            "26.1":"23B74",
+            "26.2":"23C75",
+            "26.3":"23D127",
+            "26.4":"23E238"
+          }'
 
           TARGETS_JSON='{"include": []}'
           if [ -f "ci/targets.tsv" ]; then
@@ -43,29 +69,43 @@ jobs:
           tsv_path = 'ci/targets.tsv'
           target_slug = os.environ.get('INPUT_TARGET_SLUG', '').strip()
           major_filter = os.environ.get('INPUT_MAJOR', '').strip()
-          allowed_builds = os.environ.get('ALLOWED_BUILDS', '').split()
 
-          rows = []
+          # Parse ios_versions from environment
+          ios_versions_str = os.environ.get('IOS_VERSIONS', '{}')
+          try:
+              ios_versions = json.loads(ios_versions_str)
+          except:
+              ios_versions = {}
+
+          # Read devices from TSV
+          devices = []
           try:
               with open(tsv_path) as f:
                   reader = csv.DictReader(f, delimiter='\t')
                   for row in reader:
                       if not any(row.values()):
                           continue
-                      # Apply user filters
+                      # Apply slug filter if given
                       if target_slug and row.get('slug') != target_slug:
                           continue
-                      if major_filter and row.get('major') != major_filter:
-                          continue
-                      # Filter to only allowed builds
-                      build = row.get('build', '').strip()
-                      if allowed_builds and build not in allowed_builds:
-                          continue
-                      # Convert all values to strings
-                      rows.append({k: str(v) for k, v in row.items()})
-          except Exception as e:
+                      devices.append(row)
+          except Exception:
               print(json.dumps({"include": []}))
               sys.exit(0)
+
+          # Cross-join devices with ios_versions
+          rows = []
+          for dev in devices:
+              for version, build in ios_versions.items():
+                  # Apply major filter if given (e.g., "18" -> only versions starting with "18.")
+                  if major_filter:
+                      if not version.startswith(major_filter + '.'):
+                          continue
+                  # Create a combined row with device fields + version + build
+                  new_row = {k: str(v) for k, v in dev.items()}
+                  new_row['version'] = version
+                  new_row['build'] = build
+                  rows.append(new_row)
 
           print(json.dumps({"include": rows}))
           EOF
@@ -77,7 +117,7 @@ jobs:
         env:
           INPUT_TARGET_SLUG: ${{ inputs.target_slug }}
           INPUT_MAJOR: ${{ inputs.major }}
-          ALLOWED_BUILDS: "22H20 22E240 22C152 22B83"
+          IOS_VERSIONS: '{"13.4":"17E255","14.0":"18A373","15.0":"19A346","16.0":"20A362","16.1":"20B82","16.2":"20C65","16.4":"20E247","17.0":"21A329","17.1":"21B74","17.2":"21C62","17.3":"21D50","17.4":"21E219","17.5":"21F79","17.6":"21G80","18.0":"22A3354","18.1":"22B83","18.3":"22D63","18.4":"22E240","18.5":"22F76","18.6":"22G86","18.7":"22H100","26.1":"23B74","26.2":"23C75","26.3":"23D127","26.4":"23E238"}'
 
   build:
     needs: matrix
