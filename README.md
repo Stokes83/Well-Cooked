@@ -1,4 +1,4 @@
-# ICHA12A13 `v1.2`
+# ICHA12A13`
 
 SSH ramdisk for **Apple A12 / A13** after pwned DFU with [usbliter8](https://github.com/prdgmshift/usbliter8).
 
